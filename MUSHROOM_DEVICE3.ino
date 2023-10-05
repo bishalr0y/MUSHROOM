@@ -77,9 +77,9 @@ const unsigned long WAIT_5MIN  =  300000UL;
 
 //switch case variables
 byte count;
-byte SWITCH_CASE =0;
-int DAY_COUNT = 0;
-int DAY_CYCLE = 0;
+byte SWITCH_CASE  = 0;
+int DAY_COUNT     = 0;
+int DAY_CYCLE     = 0;
 int Count;
 
 //variables eeprom
@@ -119,37 +119,44 @@ void setup()
 }
 
 
-bool setupNetwork()
+bool setupNetwork()  //18
 {
   int retries = 0;
 
   while (retries < 3) 
   {
-    if (sim7000.turnON())// && sim7000.setBaudRate(19200)) 
-    { 
-      sendATCommand("AT+IPR=19200");
+      power_sim7000();
+      sendATCommand("AT+IPR=19200");   //setting up baud rate
+      delay(100);
       if (sim7000.checkSIMStatus())
       {
         Serial.println("RDY");
         return true;
-        //break;
-      } 
-      else
+      }
+      else 
       {
         Serial.println("SMERR");
         delay(1000);
       }
-    } 
-    else 
-    {
-      Serial.println("0 SM7k");
-      delay(3000);
-    }
-
-    retries++;
-
+     retries++;
   }
   return false;
+}
+
+void power_sim7000()  //17
+{
+      pinMode(12,OUTPUT);
+      delay(2000);
+      sendATCommand("AT");
+      delay(500);
+      sendATCommand("AT+CPOWD=1");
+      delay(4000);
+      digitalWrite(12, HIGH);
+      delay(1000);
+      digitalWrite(12, LOW);
+      delay(7000);
+      sendATCommand("AT");
+      delay(100);
 }
 
 
@@ -214,14 +221,14 @@ void setup_sim(bool check)
     sendATCommand(AT_CGPADDR);
     delay(2000);
 
-    sendATCommand(AT_CMGF);
+   /* sendATCommand(AT_CMGF);
     delay(2000);
 
     sendATCommand(AT_CLTS);
     delay(2000);
 
     sendATCommand(AT_W);    //AT+SMSTATE?
-    delay(2000);
+    delay(2000);*/
   }
   while ((!success)&&i<=5)
   {
@@ -240,9 +247,29 @@ void setup_sim(bool check)
   bool rstart=false;
   DONE_DEVICE = 1;
   rstart=publish_ack();
-  Serial.print(int(EEPROM.read(MEMORY)));
+ // Serial.print(int(EEPROM.read(MEMORY)));
   Serial.println("{..}");
   Retrive_SwitchCaseValues_from_eeprom();
+  /*
+   * 
+   if(EEPROM.read(21)==true)    //go to void loop at alive condition
+   {
+    DAY_DEVICE=0;
+    INIT_DEVICE=0;
+   }
+ 
+   if(EEPROM.read(20)==true)      //go to void loop at alive condition
+   {    
+    previousMillis=readLongFromEEPROM(MEMORY+14);
+    Serial.println(previousMillis);
+    Serial.println(millis());
+   }
+   else
+   {
+    previousMillis=millis();
+    Serial.println("ms");
+   }
+   */
   
   previousMillis=millis();
 }
@@ -328,7 +355,7 @@ void sendATCommand(String command)
 
 
 //varibles to publish alive messege for every particular interval
-int j=0,SET_PIN=0;
+int j=0,SET_PIN=0,alive_count=0;
 void loop()
 {
      char buffer[MAX_BUF_SIZE];
@@ -588,11 +615,24 @@ void loop()
           x++;
           delay(300);
           goto resend;
-          
+           
         }
+        alive_count++;
+            if(alive_count==3)
+            {
+                Serial.println("alv_cnt:");
+                Serial.println(alive_count);
+                Write_SwitchCaseValues_to_eeprom();
+                alive_count=0;
+                resetMicrocontroller();
+                
+            }
+            
+            
+      }
         if(j==300)
           j=0;
-      }
+      
     }
   
 }
