@@ -68,7 +68,8 @@ volatile byte DONE_DEVICE    = 0;
 
 volatile bool received       = false;   //stores boolean=true if mqtt message is received
 volatile bool check          = true;    
-unsigned long previousMillis = 0;       //stores millis() values to compare timings 
+long previousMillis = 0;       //stores millis() values to compare timings 
+long elapsedMillis =0;
 
 const unsigned long WAIT_1MIN  =  60000UL;
 const unsigned long WAIT_20MIN =  1200000UL;
@@ -250,9 +251,8 @@ void setup_sim(bool check)
  // Serial.print(int(EEPROM.read(MEMORY)));
   Serial.println("{..}");
   Retrive_SwitchCaseValues_from_eeprom();
-  /*
-   * 
-   if(EEPROM.read(21)==true)    //go to void loop at alive condition
+ 
+  /* if(EEPROM.read(21)==true)    //go to void loop at alive condition
    {
     DAY_DEVICE=0;
     INIT_DEVICE=0;
@@ -270,6 +270,7 @@ void setup_sim(bool check)
     Serial.println("ms");
    }
    */
+   
   
   previousMillis=millis();
 }
@@ -356,6 +357,7 @@ void sendATCommand(String command)
 
 //varibles to publish alive messege for every particular interval
 int j=0,SET_PIN=0,alive_count=0;
+ byte Pins_Control[] = {1, 20, 2, 20, 5, 20, 0, 15, 120, 127}; //0=init-cmplt,15=day_5min,120=day_20min,127=day_change
 void loop()
 {
      char buffer[MAX_BUF_SIZE];
@@ -378,7 +380,7 @@ void loop()
       {
         Serial.println("init");
         CHECK_COMMAND = 0;
-        byte Pins_Control[] = {1, 20, 2, 20, 5, 20, 0, 15, 120, 127}; //0=init-cmplt,15=day_5min,120=day_20min,127=day_change
+       
         switch (Pins_Control[SWITCH_CASE])
         {
            case 1    :  Serial.println("1");
@@ -618,14 +620,40 @@ void loop()
            
         }
 
-        if(DAY_DEVICE!=1&&INIT_DEVICE!=1)
+        if((Pins_Control[SWITCH_CASE]==20||Pins_Control[SWITCH_CASE]==120)||DAY_DEVICE!=1&&INIT_DEVICE!=1)
         {
             alive_count++;
             if(alive_count==3)
             {
-                Serial.println("alv_cnt:");
+                Serial.print("alv_cnt: ");
                 Serial.println(alive_count);
+                delay(50);
+                 if(DAY_DEVICE!=1&&INIT_DEVICE!=1)
+                {
+                  Serial.println("-_-");
+                  EEPROM.write(21,true);    //writes true to memory when resets during DAY_DEVCE!=1 and INIT_DEVICE!=1
+                  EEPROM.write(20,false); //writes true to memory when resets during sending the alive message  and DAY_DEVCE!=1 and INIT_DEVICE!=1
+                }
+                else
+                {
+                  Serial.println("0_0");
+                  EEPROM.write(20,true);     //writes true to memory when resets during sending the alive message and DAY_DEVCE==1 or INIT_DEVICE==1
+                  //store_elapsedMillis_in_EEPROM();
+                  EEPROM.write(21,false);
+                  elapsedMillis=(millis()-previousMillis);
+                  Serial.print("pM: ");
+                  Serial.println(previousMillis);
+                  elapsedMillis=-(elapsedMillis);
+                  elapsedMillis=elapsedMillis-40000;
+                  Serial.print("eM: ");
+                  Serial.println(elapsedMillis);
+                /*  writeLongToEEPROM(MEMORY+14,elapsedMillis); 
+                  Write_SwitchCaseValues_to_eeprom();*/
+                  delay(1500);      //important to perform else part properly
+                }
+                
                // Write_SwitchCaseValues_to_eeprom();
+               
                 alive_count=0;
                 resetMicrocontroller();
                 
@@ -640,6 +668,11 @@ void loop()
       
     }
   
+}
+
+void store_elapsedMillis_in_EEPROM()
+{
+ // Serial.println("~ _ ~");
 }
 
 void setAllPins(int state) {
@@ -907,4 +940,23 @@ void Retrive_SwitchCaseValues_from_eeprom()
 
    //String value
  
+}
+
+void writeLongToEEPROM(int address, long int value)   //2
+{
+  byte* p = (byte*)(void*)&value; // Treat the long int as an array of bytes
+  for (int i = 0; i < sizeof(value); i++) {
+    EEPROM.write(address + i, p[i]);
+  }
+//  EEPROM.commit();
+}
+
+long int readLongFromEEPROM(int address)   //1
+{
+  long int value = 0;
+  byte* p = (byte*)(void*)&value; // Treat the long int as an array of bytes
+  for (int i = 0; i < sizeof(value); i++) {
+    p[i] = EEPROM.read(address + i);
+  }
+  return value;
 }
