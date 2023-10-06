@@ -617,16 +617,21 @@ void loop()
           goto resend;
            
         }
-        alive_count++;
+
+        if(DAY_DEVICE!=1&&INIT_DEVICE!=1)
+        {
+            alive_count++;
             if(alive_count==3)
             {
                 Serial.println("alv_cnt:");
                 Serial.println(alive_count);
-                Write_SwitchCaseValues_to_eeprom();
+               // Write_SwitchCaseValues_to_eeprom();
                 alive_count=0;
                 resetMicrocontroller();
                 
             }
+
+        }
             
             
       }
