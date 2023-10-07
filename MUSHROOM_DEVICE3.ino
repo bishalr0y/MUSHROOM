@@ -41,7 +41,7 @@
 #define PIN3            3
 #define PIN4            4
 #define PIN5            5
-#define PIN6            6
+#define PIN6            11
 #define PIN_RESET       10
 
 
@@ -820,6 +820,7 @@ void processReceivedData(char* data)
       COMMAND_ID += data[i];
       i++;
     }
+    
     i++;
 
     if (strstr(data, STATE4))
