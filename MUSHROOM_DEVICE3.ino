@@ -7,11 +7,13 @@
 
 
 #define serverIP         "65.1.65.154"                                   //server ip
-#define IOT_CLIENT       "dfrobot3"                                       //client name
+#define IOT_CLIENT       "dfrobot1"                                       //client name
 #define IOT_USERNAME     "nav_mqtt_broker"                               //local broker name 
 #define IOT_KEY          "ecV2JELeXo8x1cZH"                              //password to connect with broker
 //#define IOT_TOPIC1       "COMMAND_ea3064aa-682d-4341-8f0f-86e8abe44f45"  //subcribed the TOPIC to receive and process the state(RESET/STOP/DAY/DONE)                       
-#define IOT_TOPIC1        "COMMAND_c8302a8a-9883-4a40-adfb-9303ce3544d4"
+//#define IOT_TOPIC1        "COMMAND_c8302a8a-9883-4a40-adfb-9303ce3544d4"
+#define IOT_TOPIC1        "COMMAND_73b1cf62-803f-4015-b0b7-05d819a2391f"
+
 #define IOT_TOPIC_ACK     "ACK"                                           //publishing the topic after receiving message from COMMAND topic 
 #define IOT_TOPIC_SEND    "STATE"                                         //publishing the topic for every high-low of PINS
 #define IOT_TOPIC_RECORD  "RECORD"
@@ -31,6 +33,7 @@
 #define AT_CMGF        "AT+CMGF=1"
 #define AT_CLTS        "AT+CLTS=1"
 #define AT_W           "AT&W"
+//#define DEBUG
 
 //using ARDUINO&SIM7000C pins 
 #define PIN_TX          7                      //making arduino digital pin7 as TX i.e pin7 on SIM7000C is RX 
@@ -196,7 +199,7 @@ void setup_sim(bool check)
     delay(200);
     
     sendATCommand(AT_GPRS);
-    delay(100);
+    delay(500);
 
     sendATCommand(AT_CIICR);
     delay(100);
@@ -235,7 +238,9 @@ void setup_sim(bool check)
   {
     if (!connectToNetwork())
     {
+      #ifdef DEBUG
       Serial.println(" 0 Nt");
+      #endif
       resetMicrocontroller();
     }
     success = connectMQTT()&& subscribeToTopic();
@@ -249,10 +254,12 @@ void setup_sim(bool check)
   DONE_DEVICE = 1;
   rstart=publish_ack();
  // Serial.print(int(EEPROM.read(MEMORY)));
+  #ifdef DEBUG
   Serial.println("{..}");
+  #endif
   Retrive_SwitchCaseValues_from_eeprom();
  
-  /* if(EEPROM.read(21)==true)    //go to void loop at alive condition
+   if(EEPROM.read(21)==true)    //go to void loop at alive condition
    {
     DAY_DEVICE=0;
     INIT_DEVICE=0;
@@ -261,18 +268,23 @@ void setup_sim(bool check)
    if(EEPROM.read(20)==true)      //go to void loop at alive condition
    {    
     previousMillis=readLongFromEEPROM(MEMORY+14);
+    #ifdef DEBUG
     Serial.println(previousMillis);
     Serial.println(millis());
+    #endif
+
    }
    else
    {
     previousMillis=millis();
+    #ifdef DEBUG
     Serial.println("ms");
+    #endif
    }
-   */
+   
    
   
-  previousMillis=millis();
+ // previousMillis=millis();
 }
 
 
@@ -284,12 +296,16 @@ bool connectToNetwork()
   {
     if (sim7000.openNetwork(sim7000.eTCP, serverIP, 1883)) 
     {
+      #ifdef DEBUG
       Serial.println("1nt");
+      #endif
       return true;
     } 
     else 
     {
+      #ifdef DEBUG
       Serial.println("0nt");
+      #endif
       sendATCommand("AT+CIFSR");
       delay(1000);
       retries++;
@@ -308,12 +324,16 @@ bool connectMQTT()
   {
     if (sim7000.mqttConnect(IOT_CLIENT, IOT_USERNAME, IOT_KEY))
     {
+      #ifdef DEBUG
       Serial.println("1 M");
+      #endif
       return true;
     } 
     else 
     {
+      #ifdef DEBUG
       Serial.println("0 M");
+      #endif
       retries++;
     }
     sendATCommand("AT+CIFSR");
@@ -329,12 +349,16 @@ bool subscribeToTopic()
     { 
        if (sim7000.mqttSubscribe(IOT_TOPIC1))
        {
+        #ifdef DEBUG
          Serial.println("1 s");
+         #endif
          return true;
        } 
        else
        {
+         #ifdef DEBUG
          Serial.println("0 s");
+         #endif
          retries++;
        }
     }
@@ -343,7 +367,7 @@ bool subscribeToTopic()
 
 void sendATCommand(String command)
 {
-
+    
     mySerial.println(command);
     delay(500);
     String response;
@@ -364,10 +388,14 @@ void loop()
      received = sim7000.mqttRecv(IOT_TOPIC1, buffer, MAX_BUF_SIZE);
      if (received)
      {
+      #ifdef DEBUG
        Serial.println("rcv");
+      #endif
        // Process the received data
           COMMAND_ID.remove(0);
+          #ifdef DEBUG
           Serial.println(received);
+          #endif
           processReceivedData(buffer);
           buffer[MAX_BUF_SIZE]={0};
      }
@@ -378,122 +406,170 @@ void loop()
 
       if (INIT_DEVICE == 1)
       {
+        #ifdef DEBUG
         Serial.println("init");
+        #endif
         CHECK_COMMAND = 0;
        
         switch (Pins_Control[SWITCH_CASE])
         {
-           case 1    :  Serial.println("1");
+           case 1    : 
+                        #ifdef DEBUG
+                        Serial.println("1");
+                        #endif
                         SET_PIN++;
                          setAllPins(HIGH);
 
                         if (millis() - previousMillis >= WAIT_1MIN)
                         {
+                          #ifdef DEBUG
                            Serial.println("yes");
+                           #endif
                            DEVICE_STATE = "OFF";
                            SWITCH_CASE++;
                            SET_PIN=0;
                            publish_message();
                            previousMillis = millis();
+                           #ifdef DEBUG
                            Serial.println(millis() / 60000UL);
+                           #endif
                         
                         }
                         break;
-           case 20   :  Serial.println("20");
+           case 20   :  
+                        #ifdef DEBUG
+                            Serial.println("20");
+                        #endif
                         SET_PIN++;
                         if(SET_PIN==1)  { setAllPins(LOW); }
                         else if(SET_PIN>=10){SET_PIN=0;}
 
                         if (millis() - previousMillis >= WAIT_20MIN)
                         {
+                          #ifdef DEBUG
                            Serial.println("in 20");
+                           #endif
                            DEVICE_STATE = "ON";
                            SWITCH_CASE++;
                            SET_PIN=0;
                            publish_message();
                            previousMillis = millis();
+                           #ifdef DEBUG
                            Serial.println(millis() / 60000UL);
+                           #endif
                        
                         }
                         break;
 
-            case 2    :   Serial.println("2");
+            case 2    :   
+                         #ifdef DEBUG
+                         Serial.println("2");
+                         #endif
                          SET_PIN++;
                          if(SET_PIN==1) { setAllPins(HIGH); }
                          else if(SET_PIN>=10){SET_PIN=0;}
 
                          if (millis() - previousMillis >= WAIT_2MIN)
                          {
+                          #ifdef DEBUG
                            Serial.println("in2");
+                           #endif
                            DEVICE_STATE = "OFF";
                            SWITCH_CASE++;
                            SET_PIN=0;
                            publish_message();
                       
                            previousMillis = millis();
+                           #ifdef DEBUG
                            Serial.println(millis() / 60000UL);
+                           #endif
                        
                         }
  
                         break;
 
-            case 5    :   Serial.println("5");
+            case 5    :  
+                         #ifdef DEBUG 
+                         Serial.println("5");
+                         #endif
                          SET_PIN++;
                         if(SET_PIN==1)  { setAllPins(HIGH);  } 
                         else if(SET_PIN>=10){SET_PIN=0;}
                         
                         if (millis() - previousMillis >= WAIT_5MIN)
                         {
+                         #ifdef DEBUG 
                          Serial.println("in5");
+                         #endif
                          DEVICE_STATE = "OFF";
                          SWITCH_CASE++;
                          SET_PIN=0;
                          publish_message();
                          previousMillis = millis();
+                         #ifdef DEBUG
                          Serial.println(millis() / 60000UL);
+                         #endif
                         }
   
                         break;
               case 0  :   
+                        #ifdef DEBUG
                         Serial.println("In_Ct");
+                        #endif
                         SWITCH_CASE++;
                         if (DAY_COUNT == 0)
                         {
+                          #ifdef DEBUG
                           Serial.print("D:");
                           Serial.println(DAY_COUNT);
+                          #endif
                           Count = 57; //int((60*(DAY_COUNT*24))/25);
                         }
                         previousMillis = millis();
+                        #ifdef DEBUG
                         Serial.println(millis() / 60000UL);
+                        #endif
                         break;
                         
-             case 15   :   Serial.println("15");
+             case 15   :  
+                          #ifdef DEBUG
+                          Serial.println("15");
+                          #endif
                            SET_PIN++;
                           if(SET_PIN==1)  { setAllPins(HIGH); } 
                           else if(SET_PIN>=10){SET_PIN=0;}
                           
                           if (millis() - previousMillis >= WAIT_5MIN)
                           {
+                            #ifdef DEBUG
                             Serial.println("in 5");
+                            #endif
                             DEVICE_STATE = "OFF";
                             SWITCH_CASE = 8;
                             SET_PIN=0;
                             publish_message();
                         
                             previousMillis = millis();
+                            #ifdef DEBUG
                             Serial.println(millis() / 60000UL);
+                            #endif
                         
                           }
                          break;
                          
-            case 120   :   Serial.println("120");
+            case 120   :  
+                           #ifdef DEBUG
+                            Serial.println("120");
+                           #endif
                            SET_PIN++;
                            if(SET_PIN==1) {   setAllPins(LOW);  }
                            else if(SET_PIN>=10){SET_PIN=0;}
                            
                            if (millis() - previousMillis >= WAIT_20MIN)
                            {
+                            #ifdef DEBUG
                               Serial.println("in 20");
+                              #endif
                               if (DAY_CYCLE == Count)
                               {
                                 DEVICE_STATE = "OFF";
@@ -506,13 +582,18 @@ void loop()
                               SET_PIN=0;
                               publish_message();
                               previousMillis = millis();
+                              #ifdef DEBUG
                               Serial.println(millis() / 60000UL);
+                              #endif
                          
                            }
           
                             break;
 
-             case 127 :    SWITCH_CASE = 7;Serial.println("127");
+             case 127 :    SWITCH_CASE = 7;
+                             #ifdef DEBUG
+                             Serial.println("127");
+                             #endif
                    
                            if (DAY_CYCLE >= Count)
                            {
@@ -536,15 +617,18 @@ void loop()
                      
 
 
-
+                              #ifdef DEBUG
                               Serial.println("D_C");
+                              #endif
           
                               previousMillis = millis();
                            }
                            DAY_CYCLE++;
+                           #ifdef DEBUG
                            Serial.print("c:");
                            Serial.println(DAY_CYCLE);
                            Serial.println("CNG");
+                           #endif
                            break;
         
                default:      break;
@@ -560,13 +644,17 @@ void loop()
     STOP_DEVICE = 2;  //STOP_DEVICE done;
     Write_SwitchCaseValues_to_eeprom();
     previousMillis = millis();
+    #ifdef DEBUG
     Serial.println(millis()/60000UL);
     Serial.println("SD");
+    #endif
   }
   else if (DAY_DEVICE == 1)
   {
+    #ifdef DEBUG
     Serial.print("1.");
     Serial.println(INIT_DEVICE);
+    #endif
     CHECK_COMMAND = 0;
 
     if (INIT_DEVICE == 0)
@@ -578,7 +666,9 @@ void loop()
     if (INIT_DEVICE == 1)
     {
       Count = int((60 * (DAY_COUNT * 24)) / 25);
+      #ifdef DEBUG
       Serial.println("gti");
+      #endif
       DEVICE_STATE = "ON";
       publish_message();
       previousMillis = millis();
@@ -590,27 +680,38 @@ void loop()
       if (DAY_CYCLE >= Count)
       {
         DAY_DEVICE = 2;
+        #ifdef DEBUG
         Serial.println(Count);
+        #endif
       }
+      #ifdef DEBUG
       Serial.println("3.2");
+      #endif
     }
     
   }
 
   
- 
+  #ifdef DEBUG
     Serial.println("ivloop");
+  #endif
     
     j++;
     if(j%60==0)
     {
       int x=0;
       resend:
-      if (sim7000.mqttPublish(IOT_TOPIC_RECORD,"alive-3"))             //Send data to topic
+      if (sim7000.mqttPublish(IOT_TOPIC_RECORD,"alive-1")) 
+      {            //Send data to topic
+        #ifdef DEBUG
         Serial.println("Pok..");
+        #endif
+      }
       else
       {
+        #ifdef DEBUG
         Serial.println("Pno..");
+        #endif
         if(x<=2)
         {
          
@@ -625,8 +726,10 @@ void loop()
             alive_count++;
             if(alive_count==3)
             {
+              #ifdef DEBUG
                 Serial.print("alv_cnt: ");
                 Serial.println(alive_count);
+                #endif
                 delay(50);
                  if(DAY_DEVICE!=1&&INIT_DEVICE!=1)
                 {
@@ -647,8 +750,8 @@ void loop()
                   elapsedMillis=elapsedMillis-40000;
                   Serial.print("eM: ");
                   Serial.println(elapsedMillis);
-                /*  writeLongToEEPROM(MEMORY+14,elapsedMillis); 
-                  Write_SwitchCaseValues_to_eeprom();*/
+                  writeLongToEEPROM(MEMORY+14,elapsedMillis); 
+                  Write_SwitchCaseValues_to_eeprom();
                   delay(1500);      //important to perform else part properly
                 }
                 
@@ -670,19 +773,20 @@ void loop()
   
 }
 
-void store_elapsedMillis_in_EEPROM()
-{
- // Serial.println("~ _ ~");
-}
+
 
 void setAllPins(int state) {
+  #ifdef DEBUG
   Serial.println(state);
+  #endif
   digitalWrite(PIN2, state);
   digitalWrite(PIN3, state);
   digitalWrite(PIN4, state);
   digitalWrite(PIN5, state);
   digitalWrite(PIN6, state);
+  #ifdef DEBUG
   Serial.println("ESP");
+  #endif
 
 }
 
@@ -692,24 +796,30 @@ void publish_message()
   int count = 0;
   String sendData;
  // String DEVICE_ID = "ea3064aa-682d-4341-8f0f-86e8abe44f45";                   //"\"73b1cf62-803f-4015-b0b7-05d819a2391f\"";
-  String DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+ // String DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+  String DEVICE_ID ="73b1cf62-803f-4015-b0b7-05d819a2391f";
   // String sendData1;
   sendData += DEVICE_STATE;
   sendData += ";";
   sendData += DEVICE_ID;
-
+  #ifdef DEBUG
   Serial.println(sendData);
+  #endif
   RE_PUBLISH:
 
   if(sim7000.mqttPublish(IOT_TOPIC_SEND, sendData))  //Send data to topic
-  {             
+  {      
+    #ifdef DEBUG       
     Serial.println("P ok");
+    #endif
   }
   else
   {
     if (count <= 2)
     {
+      #ifdef DEBUG
       Serial.println("P no");
+      #endif
       if(count==1)
       {
 
@@ -733,7 +843,8 @@ bool publish_ack()
   String sendData;
   int i = 0;
  // String DEVICE_ID = "ea3064aa-682d-4341-8f0f-86e8abe44f45";
-  String DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+ // String DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+  String DEVICE_ID ="73b1cf62-803f-4015-b0b7-05d819a2391f";
   sendData += DEVICE_ID;
   sendData += ";";
   if (DONE_DEVICE == 1)
@@ -751,12 +862,16 @@ bool publish_ack()
     sendData += ";";
     sendData += STATE;
   }
+  #ifdef DEBUG
   Serial.println(sendData);
+  #endif
   RE_PUBLISH:
 
   if (sim7000.mqttPublish(IOT_TOPIC_ACK, sendData))
   { //Send data to topic
+    #ifdef DEBUG
     Serial.println("P ok");
+    #endif
     
     delay(500);
     sendData.remove(0);
@@ -766,8 +881,9 @@ bool publish_ack()
   {
     if (count <= 2)
     {
-      
+      #ifdef DEBUG
       Serial.println("P no");
+      #endif
  
       delay(500);
       count++;
@@ -787,16 +903,18 @@ void processReceivedData(char* data)
   // For example, you can print it, parse it, or take any other actions
 
   // Example: Printing the received data
- // char* DEVICE_ID="ea3064aa-682d-4341-8f0f-86e8abe44f45";
-  char* DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+  //char* DEVICE_ID="ea3064aa-682d-4341-8f0f-86e8abe44f45";
+ // char* DEVICE_ID = "c8302a8a-9883-4a40-adfb-9303ce3544d4";
+  char* DEVICE_ID ="73b1cf62-803f-4015-b0b7-05d819a2391f";
   char* STATE1 = "RESET";
   char* STATE2 = "STOP";
   char* STATE4 = "DONE";
   int state1 = 0, state2 = 0, DEVICE;
 
-
+ #ifdef DEBUG
   Serial.println("Rd");
   Serial.println(data);
+  #endif
 
   int i = 0, j = 0;
 
@@ -810,7 +928,9 @@ void processReceivedData(char* data)
   if (strstr(data, DEVICE_ID))
   {
     DEVICE = 1;
+    #ifdef DEBUG
     Serial.println("Dfnd");
+    #endif
   
   if (DEVICE)
   {
@@ -825,7 +945,9 @@ void processReceivedData(char* data)
 
     if (strstr(data, STATE4))
     {
+      #ifdef DEBUG
       Serial.println("Dn-cd");
+      #endif
       STATE = EEPROM.read(MEMORY);
       DONE_DEVICE = 1;
       publish_ack();
@@ -833,7 +955,9 @@ void processReceivedData(char* data)
    }
     else if (strstr(data, STATE1))
     {
+      #ifdef DEBUG
       Serial.println("reset");
+      #endif
       STATE_COMMAND_ID = "";
       DONE = 0;
       EEPROM.write(MEMORY, DONE);
@@ -852,7 +976,9 @@ void processReceivedData(char* data)
     }
     else if (strstr(data, STATE2))
     {
+      #ifdef DEBUG
       Serial.println("stop");
+      #endif
       STATE_COMMAND_ID = "";
       STATE_COMMAND_ID=COMMAND_ID;
       CHECK_COMMAND = 2;
@@ -905,7 +1031,9 @@ void processReceivedData(char* data)
   }
   else
   {
+    #ifdef DEBUG
     Serial.println("NOT");
+    #endif
   }
   DEVICE = 0;
 }
